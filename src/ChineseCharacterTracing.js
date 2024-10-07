@@ -1,88 +1,97 @@
 import React, { useState, useRef, useEffect } from 'react';
 import HanziWriter from 'hanzi-writer';
-import { FaArrowRight,FaRandom, FaPlayCircle, FaVolumeUp, FaPenNib } from "react-icons/fa";
+import { FaArrowRight, FaRandom, FaPlayCircle, FaVolumeUp, FaPenNib, FaExternalLinkAlt } from "react-icons/fa";
+
+const DISPLAY_QUEUE_SIZE = 50;
+
+const getBaiduBaikeLink = (character) => {
+  return `https://baike.baidu.com/item/${encodeURIComponent(character)}`;
+};
 
 const ChineseCharacterTracing = () => {
-  const [characters, setCharacters] = useState([]);
+  const [displayQueue, setDisplayQueue] = useState([]);
+  const [tempQueue, setTempQueue] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [nextCount, setNextCount] = useState(0); 
-  const [mode, setMode] = useState('sequential');
-  const [isLoading, setIsLoading] = useState(true);
+  // const [mode, setMode] = useState('sequential');
+  const [mode, setMode] = useState('write'); // New state for tracking mode
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [writer, setWriter] = useState(null);
   const characterTarget = useRef(null);
   const [strokeThickness, setStrokeThickness] = useState(30);
 
-  // const fetchCharacters = () => {
-  //   return new Promise(resolve => {
-  //     setTimeout(() => {
-  //       resolve([
-  //         { char: '一', strokes: 1 },
-  //         { char: '二', strokes: 2 },
-  //         { char: '四', strokes: 3 },
-  //         { char: '十', strokes: 2 },
-  //         { char: '口', strokes: 3 },
-  //         { char: '日', strokes: 4 },
-  //         { char: '月', strokes: 4 },
-  //         { char: '田', strokes: 5 },
-  //         { char: '目', strokes: 5 },
-  //         { char: '你', strokes: 7 },
-  //         { char: '我', strokes: 7 },
-  //         { char: '他', strokes: 5 },
-  //         { char: '她', strokes: 6 },
-  //         { char: '好', strokes: 6 },
-  //         { char: '爱', strokes: 10 },
-  //       ]);
-  //     }, 500);
-  //   });
-  // };
+  const fetchDefaultCharacters = () => {
+    return [
+      { char: '一', strokes: 1 },
+      { char: '二', strokes: 2 },
+      { char: '四', strokes: 3 },
+      { char: '十', strokes: 2 },
+      { char: '口', strokes: 3 },
+      { char: '日', strokes: 4 },
+      { char: '月', strokes: 4 },
+      { char: '田', strokes: 5 },
+      { char: '目', strokes: 5 },
+      { char: '你', strokes: 7 },
+      { char: '我', strokes: 7 },
+      { char: '他', strokes: 5 },
+      { char: '她', strokes: 6 },
+      { char: '好', strokes: 6 },
+      { char: '爱', strokes: 10 },
+    ];
+  };
 
-  const fetchCharacters = async () => {
+  const fetchMoreCharacters = async () => {
     const chars = [];
-    while (chars.length < 10) {
+    let attempts = 0;
+    const maxAttempts = 100; // Increased to allow for more filtering
+
+    const isSimplifiedChinese = (char) => {
+      const code = char.charCodeAt(0);
+      return (code >= 0x4E00 && code <= 0x9FFF) && 
+             !(code >= 0x2E80 && code <= 0x2EFF) && // Exclude CJK Radicals Supplement
+             !(code >= 0x2F00 && code <= 0x2FDF) && // Exclude Kangxi Radicals
+             !(code >= 0xF900 && code <= 0xFAFF) &&   // Exclude CJK Compatibility Ideographs (often traditional)
+             !(code >= 0x3400 && code <= 0x4DBF);   // Exclude CJK Unified Ideographs Extension
+    };
+
+    while (chars.length < 10 && attempts < maxAttempts) {
+      attempts++;
       const randomCodePoint = Math.floor(Math.random() * (0x9FFF - 0x4E00 + 1) + 0x4E00);
       const char = String.fromCodePoint(randomCodePoint);
-      try {
-        // Use HanziWriter.loadCharacterData instead of getCharacterData
-        const charData = await HanziWriter.loadCharacterData(char);
-        if (charData) {
-          chars.push({ char, strokes: charData.strokes.length });
+      
+      if (isSimplifiedChinese(char)) {
+        try {
+          const charData = await HanziWriter.loadCharacterData(char);
+          if (charData && charData.strokes.length > 1) { // Exclude single-stroke characters (likely radicals)
+            chars.push({ char, strokes: charData.strokes.length });
+          }
+        } catch (error) {
+          console.warn(`Failed to load data for character: ${char}`, error);
         }
-      } catch (error) {
-        console.warn(`Failed to load data for character: ${char}`, error);
       }
     }
-    return chars.sort((a, b) => a.strokes - b.strokes);
-  };
-
-  const refreshCharacters = async () => {
-    setIsLoading(true);
-    const newChars = await fetchCharacters();
-    setCharacters(newChars);
-    setCurrentIndex(0);
-    setNextCount(0);
-    setIsLoading(false);
+    return chars;
   };
 
   useEffect(() => {
-    refreshCharacters();
+    const defaultChars = fetchDefaultCharacters();
+    const randomIndex = Math.floor(Math.random() * defaultChars.length);
+    setDisplayQueue(defaultChars);
+    setCurrentIndex(randomIndex);
+
+    // Fetch more characters in the background
+    setIsLoadingMore(true);
+    fetchMoreCharacters().then(newChars => {
+      console.log('Fetched new characters:', newChars);
+      setTempQueue(newChars);
+      setIsLoadingMore(false);
+    });
   }, []);
 
-  // useEffect(() => {
-  //   setIsLoading(true);
-  //   fetchCharacters().then(chars => {
-  //     setCharacters(chars.sort((a, b) => a.strokes - b.strokes));
-  //     setIsLoading(false);
-  //   });
-  // }, []);
-
   useEffect(() => {
-    if (characters.length > 0 && characterTarget.current) {
-      console.log('Attempting to create/update writer for character:', characters[currentIndex].char);
-      if (writer) {
-        writer.setCharacter(characters[currentIndex].char);
-        startQuiz(); // Start quiz after setting new character
-      } else {
-        const newWriter = HanziWriter.create(characterTarget.current, characters[currentIndex].char, {
+    if (displayQueue.length > 0 && characterTarget.current) {
+      if (!writer) {
+        const newWriter = HanziWriter.create(characterTarget.current, displayQueue[currentIndex].char, {
           width: 500,
           height: 500,
           padding: 5,
@@ -91,21 +100,19 @@ const ChineseCharacterTracing = () => {
           delayBetweenStrokes: 100,
           strokeColor: '#333',
           outlineColor: '#DDD',
-          drawingWidth: strokeThickness, // Set the stroke thickness here
+          drawingWidth: 30, // Use a fixed value or state variable if needed
           drawingColor: '#333',
-          //radicalColor: '#337ab7',
-          highlightColor: '#337ab7',
+          highlightColor: '#008c9b',
         });
         setWriter(newWriter);
-        setTimeout(() => startQuiz(newWriter), 100);
+        startQuiz(newWriter);
       }
     }
-  }, [characters, currentIndex, writer, strokeThickness]);
+  }, [displayQueue, currentIndex]);
 
   const startQuiz = (w = writer) => {
     if (w) {
       w.quiz({
-        drawingWidth: strokeThickness,
         onComplete: (summaryData) => {
           console.log('Quiz completed!', summaryData);
         }
@@ -113,34 +120,46 @@ const ChineseCharacterTracing = () => {
     }
   };
 
-  // const nextCharacter = () => {
-  //   if (characters.length === 0) return;
-  //   if (mode === 'random') {
-  //     setCurrentIndex(Math.floor(Math.random() * characters.length));
-  //   } else {
-  //     setCurrentIndex((prevIndex) => (prevIndex + 1) % characters.length);
-  //   }
-  // };
-
   const nextCharacter = () => {
-    if (characters.length === 0) return;
-    const nextIndex = (currentIndex + 1) % characters.length;
-    setCurrentIndex(nextIndex);
-    setNextCount(prevCount => {
-      const newCount = prevCount + 1;
-      if (newCount >= 10) {
-        refreshCharacters();
-        return 0;
+    let nextIndex = currentIndex + 1;
+    
+    console.log('Current index:', currentIndex);
+    console.log('Display queue length:', displayQueue.length);
+    console.log('Temp queue length:', tempQueue.length);
+
+    if (nextIndex >= displayQueue.length) {
+      console.log('Reached end of display queue');
+      if (tempQueue.length > 0) {
+        console.log('Swapping queues');
+        setDisplayQueue(tempQueue);
+        setTempQueue([]);
+        nextIndex = 0;
+      } else {
+        console.log('Temp queue empty, looping back to start');
+        nextIndex = 0;
       }
-      return newCount;
-    });
-  };
+    }
 
+    setCurrentIndex(nextIndex);
 
-  const randomCharacter = () => {
-    if (characters.length === 0) return;
-    const randomIndex = Math.floor(Math.random() * characters.length);
-    setCurrentIndex(randomIndex);
+    // Update the writer with the new character
+    if (writer) {
+      const newChar = (nextIndex === 0 && tempQueue.length > 0) ? tempQueue[0].char : displayQueue[nextIndex].char;
+      console.log('Setting new character:', newChar);
+      writer.setCharacter(newChar);
+      startQuiz();
+    }
+
+    // Fetch more characters if temp queue is empty
+    if (tempQueue.length === 0 && !isLoadingMore) {
+      console.log('Fetching more characters');
+      setIsLoadingMore(true);
+      fetchMoreCharacters().then(newChars => {
+        console.log('Fetched new characters:', newChars);
+        setTempQueue(newChars);
+        setIsLoadingMore(false);
+      });
+    }
   };
 
   const playAnimation = () => {
@@ -150,55 +169,71 @@ const ChineseCharacterTracing = () => {
   };
 
   const playSound = () => {
-    if (characters.length === 0) return;
-    console.log('Playing sound for character:', characters[currentIndex].char);
-    const utterance = new SpeechSynthesisUtterance(characters[currentIndex].char);
+    if (displayQueue.length === 0) return;
+    console.log('Playing sound for character:', displayQueue[currentIndex].char);
+    const utterance = new SpeechSynthesisUtterance(displayQueue[currentIndex].char);
     utterance.lang = 'zh-CN';
     utterance.rate = 0.2;
     speechSynthesis.speak(utterance);
   };
 
-  if (isLoading) {
-    return <div>Loading characters...</div>;
-  }
+  const toggleMode = () => {
+    if (mode === 'write') {
+      setMode('animate');
+      if (writer) {
+        writer.animateCharacter();
+      }
+    } else {
+      setMode('write');
+      startQuiz();
+    }
+  };
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100">
       <div className="p-4 bg-white rounded-lg shadow-md">
         <h2 className="text-2xl font-bold mb-4 text-center">
-          Trace the Character: {characters[currentIndex]?.char || ''}
+          Trace the Character: {displayQueue[currentIndex]?.char || ''}
+          <a
+            href={getBaiduBaikeLink(displayQueue[currentIndex]?.char)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="ml-2 text-[#008c9b] hover:text-[rgba(var(--color-008c9b),0.8)]"
+            title="Look up on Baidu Baike"
+          >
+            <FaExternalLinkAlt className="inline-block text-sm" />
+          </a>
         </h2>
         <div ref={characterTarget} style={{ width: '500px', height: '500px' }}></div>
-        <div className="mt-4 flex space-x-4">
-          <button
-            onClick={nextCharacter}
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 flex items-center"
-          >
-            <FaArrowRight className="mr-2" /> Next
-          </button>
-          <button
-            onClick={randomCharacter}
-            className="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600 flex items-center"
-          >
-            <FaRandom className="mr-2" /> Random
-          </button>
-          <button
-            onClick={playAnimation}
-            className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-green-600 flex items-center"
-          >
-            <FaPlayCircle className="mr-2" /> Animate
-          </button>
-          <button
-            onClick={() => startQuiz()}
-            className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-yellow-600 flex items-center"
-          >
-            <FaPenNib className="mr-2" /> Write
-          </button>
+        <div className="mt-4 flex justify-center items-center space-x-4">
+          {/* Toggle switch */}
+          <div className="flex items-center p-1">
+            <span className={`mr-2 ${mode === 'write' ? 'text-gray-800' : 'text-gray-500'}`}>Write</span>
+            <div
+              className="w-14 h-7 flex items-center bg-[rgba(var(--color-008c9b),0.5)] rounded-full p-1 cursor-pointer"
+              onClick={toggleMode}
+            >
+              <div
+                className={`bg-white w-5 h-5 rounded-full shadow-md transform duration-300 ease-in-out ${
+                  mode === 'animate' ? 'translate-x-7' : ''
+                }`}
+              ></div>
+            </div>
+            <span className={`ml-2 ${mode === 'animate' ? 'text-gray-800' : 'text-gray-500'}`}>Animate</span>
+          </div>
+
+          {/* Buttons */}
           <button
             onClick={playSound}
-            className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-green-600 flex items-center"
+            className="px-4 py-2 bg-[rgba(var(--color-008c9b),0.5)] text-gray-700 rounded hover:bg-[rgba(var(--color-008c9b),0.7)] flex items-center"
           >
             <FaVolumeUp className="mr-2" /> Pronounce
+          </button>
+          <button
+            onClick={nextCharacter}
+            className="px-4 py-2 bg-[#008c9b] text-white rounded hover:bg-[rgba(var(--color-008c9b),0.8)] flex items-center"
+          >
+            <FaArrowRight className="mr-2" /> Next
           </button>
         </div>
       </div>
