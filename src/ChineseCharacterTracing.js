@@ -19,6 +19,8 @@ const ChineseCharacterTracing = () => {
   const [writer, setWriter] = useState(null);
   const characterTarget = useRef(null);
   const [strokeThickness, setStrokeThickness] = useState(30);
+  const [characterSize, setCharacterSize] = useState(500);
+
 
   const fetchDefaultCharacters = () => {
     return [
@@ -47,11 +49,16 @@ const ChineseCharacterTracing = () => {
 
     const isSimplifiedChinese = (char) => {
       const code = char.charCodeAt(0);
-      return (code >= 0x4E00 && code <= 0x9FFF) && 
-             !(code >= 0x2E80 && code <= 0x2EFF) && // Exclude CJK Radicals Supplement
-             !(code >= 0x2F00 && code <= 0x2FDF) && // Exclude Kangxi Radicals
-             !(code >= 0xF900 && code <= 0xFAFF) &&   // Exclude CJK Compatibility Ideographs (often traditional)
-             !(code >= 0x3400 && code <= 0x4DBF);   // Exclude CJK Unified Ideographs Extension
+      return (
+        (code >= 0x4E00 && code <= 0x9FA5) //|| // Basic Han (most common)
+        // (code >= 0x9FA6 && code <= 0x9FCB) || // Basic Han Supplement
+        // (code >= 0x3400 && code <= 0x4DB5) || // Extension A
+        // (code >= 0x20000 && code <= 0x2A6D6) || // Extension B
+        // (code >= 0x2A700 && code <= 0x2B734) || // Extension C
+        // (code >= 0x2B740 && code <= 0x2B81D) // Extension D
+      // ) && !(
+      //   (code >= 0xF900 && code <= 0xFAFF) // Exclude CJK Compatibility Ideographs (often traditional)
+      );
     };
 
     while (chars.length < 10 && attempts < maxAttempts) {
@@ -89,11 +96,23 @@ const ChineseCharacterTracing = () => {
   }, []);
 
   useEffect(() => {
+    const handleResize = () => {
+      const size = Math.min(window.innerWidth * 0.9, window.innerHeight * 0.6, 500);
+      setCharacterSize(size);
+    };
+
+    handleResize(); // Set initial size
+    window.addEventListener('resize', handleResize);
+
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
     if (displayQueue.length > 0 && characterTarget.current) {
       if (!writer) {
         const newWriter = HanziWriter.create(characterTarget.current, displayQueue[currentIndex].char, {
-          width: 500,
-          height: 500,
+          width: characterSize,
+          height: characterSize,
           padding: 5,
           showOutline: true,
           strokeAnimationSpeed: 1,
@@ -105,10 +124,29 @@ const ChineseCharacterTracing = () => {
           highlightColor: '#008c9b',
         });
         setWriter(newWriter);
+        console.log('Writer created:', newWriter);
         startQuiz(newWriter);
+        console.log('Quiz started');
+      }  else {
+        writer.updateDimensions({
+          width: characterSize,
+          height: characterSize,
+        });
       }
     }
-  }, [displayQueue, currentIndex]);
+  }, [displayQueue, currentIndex, characterSize]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      const size = Math.min(window.innerWidth * 0.8, window.innerHeight * 0.45, 400);
+      setCharacterSize(size);
+    };
+
+    handleResize(); // Set initial size
+    window.addEventListener('resize', handleResize);
+
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const startQuiz = (w = writer) => {
     if (w) {
@@ -190,10 +228,10 @@ const ChineseCharacterTracing = () => {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100">
-      <div className="p-4 bg-white rounded-lg shadow-md">
-        <h2 className="text-2xl font-bold mb-4 text-center">
-          Trace the Character: {displayQueue[currentIndex]?.char || ''}
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 justify-start pt-4 px-2 pb-2">
+      <div className="w-full max-w-md bg-white rounded-lg shadow-md">
+        <h2 className="text-xl font-bold mb-4 text-center p-4">
+          Trace the character: {displayQueue[currentIndex]?.char || ''}
           <a
             href={getBaiduBaikeLink(displayQueue[currentIndex]?.char)}
             target="_blank"
@@ -204,10 +242,13 @@ const ChineseCharacterTracing = () => {
             <FaExternalLinkAlt className="inline-block text-sm" />
           </a>
         </h2>
-        <div ref={characterTarget} style={{ width: '500px', height: '500px' }}></div>
-        <div className="mt-4 flex justify-center items-center space-x-4">
+        <div 
+          ref={characterTarget} 
+          style={{ width: `${characterSize}px`, height: `${characterSize}px`, margin: '0 auto' }}
+        ></div>
+        <div className="mt-2 flex flex-col items-center space-y-2 p-2">
           {/* Toggle switch */}
-          <div className="flex items-center p-1">
+          <div className="flex items-center justify-center w-full">
             <span className={`mr-2 ${mode === 'write' ? 'text-gray-800' : 'text-gray-500'}`}>Write</span>
             <div
               className="w-14 h-7 flex items-center bg-[rgba(var(--color-008c9b),0.5)] rounded-full p-1 cursor-pointer"
@@ -222,19 +263,20 @@ const ChineseCharacterTracing = () => {
             <span className={`ml-2 ${mode === 'animate' ? 'text-gray-800' : 'text-gray-500'}`}>Animate</span>
           </div>
 
-          {/* Buttons */}
-          <button
-            onClick={playSound}
-            className="px-4 py-2 bg-[rgba(var(--color-008c9b),0.5)] text-gray-700 rounded hover:bg-[rgba(var(--color-008c9b),0.7)] flex items-center"
-          >
-            <FaVolumeUp className="mr-2" /> Pronounce
-          </button>
-          <button
-            onClick={nextCharacter}
-            className="px-4 py-2 bg-[#008c9b] text-white rounded hover:bg-[rgba(var(--color-008c9b),0.8)] flex items-center"
-          >
-            <FaArrowRight className="mr-2" /> Next
-          </button>
+          <div className="flex justify-center items-center space-x-2 w-full p-4">
+            <button
+              onClick={playSound}
+              className="px-4 py-2 bg-[rgba(var(--color-008c9b),0.3)] text-gray-700 rounded hover:bg-[rgba(var(--color-008c9b),0.5)] flex items-center flex-1"
+            >
+              <FaVolumeUp className="mr-2" /> Pronounce
+            </button>
+            <button
+              onClick={nextCharacter}
+              className="px-4 py-2 bg-[#008c9b] text-white rounded hover:bg-[rgba(var(--color-008c9b),0.8)] flex items-center flex-1"
+            >
+              <FaArrowRight className="mr-2" /> Next
+            </button>
+          </div>
         </div>
       </div>
     </div>
