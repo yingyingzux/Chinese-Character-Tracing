@@ -179,6 +179,9 @@ const ChineseCharacterTracing = () => {
     }
 
     setCurrentIndex(nextIndex);
+    
+    // Reset mode to 'write' when moving to the next character
+    setMode('write'); // {{ edit_1 }}
 
     // Update the writer with the new character
     if (writer) {
@@ -246,6 +249,7 @@ const ChineseCharacterTracing = () => {
           ref={characterTarget} 
           style={{ width: `${characterSize}px`, height: `${characterSize}px`, margin: '0 auto' }}
         ></div>
+        
         <div className="mt-2 flex flex-col items-center space-y-2 p-2">
           {/* Toggle switch */}
           <div className="flex items-center justify-center w-full">
@@ -266,19 +270,24 @@ const ChineseCharacterTracing = () => {
           <div className="flex justify-center items-center space-x-2 w-full p-4">
             <button
               onClick={playSound}
-              className="px-4 py-2 bg-[rgba(var(--color-008c9b),0.3)] text-gray-700 rounded hover:bg-[rgba(var(--color-008c9b),0.5)] flex items-center flex-1"
+              className="px-4 py-2 bg-[rgba(var(--color-008c9b),0.3)] text-gray-700 rounded hover:bg-[rgba(var(--color-008c9b),0.5)] flex items-center flex-1 justify-center"
             >
               <FaVolumeUp className="mr-2" /> Pronounce
             </button>
             <button
               onClick={nextCharacter}
-              className="px-4 py-2 bg-[#008c9b] text-white rounded hover:bg-[rgba(var(--color-008c9b),0.8)] flex items-center flex-1"
+              className="px-4 py-2 bg-[#008c9b] text-white rounded hover:bg-[rgba(var(--color-008c9b),0.8)] flex items-center flex-1 justify-center"
             >
               <FaArrowRight className="mr-2" /> Next
             </button>
           </div>
         </div>
       </div>
+      {/* Acknowledgment Section */}
+      <div className="text-center mt-4 text-gray-600">
+          Made by Yingying. Full story in <a href="https://yingyingzux.substack.com/p/leveraging-genai-to-build-a-chinese" target="_blank" rel="noopener noreferrer" className="text-[#008c9b] hover:underline">English</a> |
+          <a href="https://mp.weixin.qq.com/s?__biz=MzI2NTAzMjA4NQ==&mid=2651117326&idx=1&sn=3d0640a08b6d52b6151517d907662405&chksm=f153eff4c62466e226b7db10475fd2988cf5dac92abdc784e976c8f1e7333e24b791b5a3e9cd&token=217511037&lang=zh_CN#rd" target="_blank" rel="noopener noreferrer" className="text-[#008c9b] hover:underline"> Chinese</a>
+        </div>
     </div>
   );
 };
